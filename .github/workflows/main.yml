@@ -22,21 +22,52 @@ jobs:
           use-cross: true
           command: build
           args: --release --target aarch64-unknown-linux-gnu
+      - name: Display structure of files
+        run: ls -R
+
       - uses: actions/upload-artifact@v2
         with:
-          name: aarch64
+          name: target
           path: target/**/release/races
           
-  build:
-    name: Docker build
-    needs: linux_aarch64
+  buildx:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v2
-      
+
       - uses: actions/download-artifact@v2
         with:
-          name: aarch64
+          name: target
           
-      - name: Display structure of downloaded files
-        run: ls -R
+      - name: Prepare
+        id: prepare
+        run: |
+          DOCKER_IMAGE=stoub/nav-races
+          DOCKER_PLATFORMS=linux/arm64
+          VERSION=${GITHUB_REF##*/}-${GITHUB_SHA::8}
+
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+
+          TAGS="${VERSION}"
+          if [[ $VERSION =~ ^[0-9]\.[0-9]$ ]]; then
+            TAGS="${TAGS}, latest"
+          else
+            TAGS="${TAGS}, ${GITHUB_REF##*/}"
+          fi
+
+          echo ::set-output name=docker_image::${DOCKER_IMAGE}
+          echo ::set-output name=tags::${TAGS}
+
+      - uses: mr-smithers-excellent/docker-build-push@v5
+        name: Build & push Docker image
+        with:
+          image: ${{ steps.prepare.outputs.docker_image }}
+          tags: ${{ steps.prepare.outputs.tags }}
+          registry: docker.io
+          dockerfile: Dockerfile.arm64
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
