@@ -14,8 +14,8 @@ RUN if [ $TARGETPLATFORM = "linux/arm64" ]; then \
   chmod +x /races
 
 
-FROM scratch
+FROM debian
 
 COPY --from=builder /races /
 
-ENTRYPOINT ["/races"]
+CMD ["/races"]
