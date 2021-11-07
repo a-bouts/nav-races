@@ -22,6 +22,8 @@ jobs:
           use-cross: true
           command: build
           args: --target aarch64-unknown-linux-gnu
+      - name: Display structure of files
+        run: ls -R
       - uses: actions/upload-artifact@v2
         with:
           name: aarch64
