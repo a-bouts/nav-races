@@ -45,7 +45,7 @@ jobs:
         id: prepare
         run: |
           DOCKER_IMAGE=stoub/nav-races
-          DOCKER_PLATFORMS=linux/amd64,linux/arm64,linux/arm/v7
+          DOCKER_PLATFORMS=linux/arm64
           VERSION=${GITHUB_SHA::8}
   
           if [[ $GITHUB_REF == refs/tags/* ]]; then
