@@ -2,7 +2,7 @@ FROM debian as builder
 
 ARG TARGETPLATFORM
 
-COPY target /target
+COPY ./target /target
 
 RUN ls -lR /target
 
