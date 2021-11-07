@@ -2,7 +2,7 @@ FROM debian as builder
 
 ARG TARGETPLATFORM
 
-COPY ./target /target
+COPY ./aarch64-unknown-linux-gnu /target/
 
 RUN ls -lR /target
 
