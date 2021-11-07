@@ -68,7 +68,7 @@ jobs:
           image: ${{ steps.prepare.outputs.docker_image }}
           tags: ${{ steps.prepare.outputs.tags }}
           registry: docker.io
-          dockerfile: Dockerfile.arm64
+          dockerfile: Dockerfile
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
