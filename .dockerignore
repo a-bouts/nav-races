@@ -1,5 +1,4 @@
 /.git
 /.idea
-/target
 /k8s
 Dockerfile
