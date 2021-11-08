@@ -15,13 +15,13 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
-          target: aarch64-unknown-linux-gnu
+          target: aarch64-unknown-linux-musl
           override: true
       - uses: actions-rs/cargo@v1
         with:
           use-cross: true
           command: build
-          args: --release --target aarch64-unknown-linux-gnu
+          args: --release --target aarch64-unknown-linux-musl
       - name: Display structure of files
         run: ls -R
 
