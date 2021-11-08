@@ -18,7 +18,9 @@ struct Cli {
 
 #[launch]
 fn rocket() -> _ {
-    std::env::set_var("RUST_LOG", "error,races=info");
+    std::env::var("RUST_LOG").map_err(|_| {
+        std::env::set_var("RUST_LOG", "error,races=info");
+    });
     env_logger::init();
 
     let args = Cli::from_args();
