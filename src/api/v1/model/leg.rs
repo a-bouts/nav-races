@@ -213,10 +213,26 @@ impl Into<race::LatLon> for End {
     }
 }
 
+impl Leg {
+    fn clean_name(&self) -> String {
+        self.race.name
+            .to_lowercase()
+            .chars()
+            .filter(|c| c.is_digit(10) || c.is_ascii_alphabetic() || c.clone() == ' ')
+            .collect::<String>()
+            .split_whitespace()
+            .collect::<Vec<&str>>()
+            .join("-")
+    }
+}
+
 impl Into<race::Race> for Leg {
+
     fn into(self) -> race::Race {
         let mut race = race::Race {
-            id: Some(self.id.into()),
+            id: Some(self.clean_name()),
+            race_id: Some(self.id.into()),
+            archived: false,
             name: self.race.name.clone(),
             short_name: Some(self.race.name),
             boat: "".to_string(),

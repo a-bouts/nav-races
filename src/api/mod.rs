@@ -1,7 +1,6 @@
 use rocket::{Build, Rocket};
 
 pub(crate) mod v1;
-mod leg;
 
 pub(crate) fn init() -> Rocket<Build> {
 

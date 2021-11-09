@@ -1,6 +1,5 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
@@ -37,10 +36,16 @@ impl RaceService {
         RaceService { races_dir, archived_dir }
     }
 
-    pub(crate) async fn list(&self) -> Result<HashMap<String, Race>> {
-        let mut res = HashMap::new();
+    pub(crate) async fn list(&self, archived: Option<bool>) -> Result<Vec<Race>> {
+        let mut res = Vec::new();
 
-        let paths = fs::read_dir(&self.races_dir)?;
+        let (dir, archived) = if let Some(true) = archived {
+            (&self.archived_dir, true)
+        } else {
+            (&self.races_dir, false)
+        };
+
+        let paths = fs::read_dir(dir)?;
 
         for entry in paths {
             if let Ok(entry) = entry {
@@ -54,7 +59,12 @@ impl RaceService {
 
                                 // Read the JSON contents of the file as an instance of `AppInfo`.
                                 match serde_yaml::from_reader(reader) {
-                                    Ok(race) => { res.insert(entry.path().file_prefix().unwrap().to_string_lossy().to_string(), race); }
+                                    Ok(race) => {
+                                        let mut race: Race = race;
+                                        race.id = Some(entry.path().file_prefix().unwrap().to_string_lossy().to_string());
+                                        race.archived = archived;
+                                        res.push(race);
+                                    },
                                     Err(e) => {
                                         println!("Error reading file {:?} : {:?}", entry, e);
                                     }
@@ -68,26 +78,54 @@ impl RaceService {
             }
         }
 
+        res.sort_by(|a, b| {
+            let a = a.start_time.unwrap_or(Utc{}.ymd(1970, 1, 1).and_hms_nano(0, 0, 0, 0));
+            let b = b.start_time.unwrap_or(Utc{}.ymd(1970, 1, 1).and_hms_nano(0, 0, 0, 0));
+            b.cmp(&a)
+        });
         Ok(res)
     }
 
     pub(crate) async fn get(&self, race_id: String) -> Result<Option<Race>> {
 
-        let path = self.races_dir.join(format!("{}.yaml", race_id));
+        let mut path = self.races_dir.join(format!("{}.yaml", race_id));
+        let mut archived = false;
         if !path.exists() {
-            Ok(None)
-        } else {
-            let reader = BufReader::new(File::open(&path)?);
+            path = self.archived_dir.join(format!("{}.yaml", race_id));
+            archived = true;
+            if !path.exists() {
+                return Ok(None)
+            }
+        }
 
-            // Read the JSON contents of the file as an instance of `AppInfo`.
-            Ok(serde_yaml::from_reader(reader)?)
+        let reader = BufReader::new(File::open(&path)?);
+
+        // Read the JSON contents of the file as an instance of `AppInfo`.
+        let race: Option<Race> = serde_yaml::from_reader(reader)?;
+        let race = race.map(|mut r: Race| {
+            r.id = Some(race_id);
+            r.archived = archived;
+            r
+        });
+        Ok(race)
+    }
+
+    fn get_id(&self, race: &Race) -> Result<String> {
+        match &race.id {
+            Some(id) => {
+                Ok(id.clone())
+            }
+            None => {
+                Err(RaceError::IdIsMandatory().into())
+            }
         }
     }
 
     pub(crate) async fn create(&self, race: &Race) -> Result<()> {
-        let path = self.races_dir.join(format!("{}.yaml", race.race_id()));
+        let id = self.get_id(race)?;
+        let path = self.races_dir.join(format!("{}.yaml", id));
         if path.exists() {
-            Err(RaceError::AlreadyExists(race.race_id()).into())
+            Err(RaceError::AlreadyExists(id).into())
         } else {
             match self.save_race(&path, race) {
                 Ok(()) => Ok(()),
@@ -100,10 +138,25 @@ impl RaceService {
     }
 
     pub(crate) async fn update(&self, race_id: String, race: &Race) -> Result<()> {
-        let path = self.races_dir.join(format!("{}.yaml", race_id));
+        let mut path = self.races_dir.join(format!("{}.yaml", race_id));
         if !path.exists() {
-            Err(RaceError::NotFound(race_id).into())
+            return Err(RaceError::NotFound(race_id).into())
         } else {
+
+            if let Some(id) = &race.id {
+                if id != &race_id {
+                    // the id change. must remove old file and create new one.
+                    match fs::remove_file(&path) {
+                        Ok(_) => {},
+                        Err(e) => {
+                            println!("Error removing file {:?} : {}", path, e);
+                            return Err(e.into());
+                        }
+                    }
+                    path = self.races_dir.join(format!("{}.yaml", id))
+                }
+            }
+
             match self.save_race(&path, race) {
                 Ok(()) => Ok(()),
                 Err(e) => {
@@ -115,16 +168,19 @@ impl RaceService {
     }
 
     pub(crate) async fn delete(&self, race_id: String) -> Result<()> {
-        let path = self.races_dir.join(format!("{}.yaml", race_id));
+        let mut path = self.races_dir.join(format!("{}.yaml", race_id));
         if !path.exists() {
-            Err(RaceError::NotFound(race_id).into())
-        } else {
-            match fs::remove_file(&path) {
-                Ok(_) => Ok(()),
-                Err(e) => {
-                    println!("Error removing file {:?} : {}", path, e);
-                    Err(e.into())
-                }
+            path = self.archived_dir.join(format!("{}.yaml", race_id));
+            if !path.exists() {
+                return Err(RaceError::NotFound(race_id).into())
+            }
+        }
+
+        match fs::remove_file(&path) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                println!("Error removing file {:?} : {}", path, e);
+                Err(e.into())
             }
         }
     }
@@ -182,12 +238,18 @@ pub enum RaceError {
     AlreadyExists(String),
     #[error("Race {0} does not exist.")]
     NotFound(String),
+    #[error("Id is mandatory")]
+    IdIsMandatory(),
 }
 
 
 #[derive(Deserialize, Serialize, Debug)]
 pub(crate) struct Race {
+    #[serde(skip_serializing)]
     pub(crate) id: Option<String>,
+    pub(crate) race_id: Option<String>,
+    #[serde(default, skip_serializing)]
+    pub(crate) archived: bool,
     pub(crate) name: String,
     #[serde(rename = "shortName")]
     pub(crate) short_name: Option<String>,
@@ -198,13 +260,6 @@ pub(crate) struct Race {
     pub(crate) waypoints: Vec<Waypoint>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) ice_limits: Option<Limits>,
-}
-
-impl Race {
-
-    pub(crate) fn race_id(&self) -> String {
-        self.name.to_lowercase().split_whitespace().collect::<Vec<&str>>().join("_").chars().filter(|c| c.is_digit(10) || c.is_ascii_alphabetic() || c.clone() == '_').collect()
-    }
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -232,3 +287,6 @@ pub(crate) struct Waypoint {
     #[serde(rename = "toAvoid", skip_serializing_if = "Option::is_none")]
     pub(crate) to_avoid: Option<Vec<Vec<Vec<f64>>>>
 }
+
+
+

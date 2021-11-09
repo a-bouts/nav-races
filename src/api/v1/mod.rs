@@ -1,21 +1,23 @@
-use std::collections::HashMap;
+mod model;
 
 use rocket::{delete, get, post, put, Route, routes, State};
 use rocket::http::Status;
 use rocket::serde::json::Json;
 
-use crate::api::leg::Leg;
-use crate::race::{Race, RaceError, RaceService};
+use model::leg::Leg;
+use crate::api::v1::model::race::Race;
+use crate::race;
+use crate::race::{RaceError, RaceService};
 
 pub(crate) fn routes() -> Vec<Route> {
     routes![list, get, post, put, delete, archive, restore, post_leg]
 }
 
-#[get("/races")]
-async fn list(race_service: &State<RaceService>) -> Result<Json<HashMap<String, Race>>, Status> {
+#[get("/races?<archived>")]
+async fn list(race_service: &State<RaceService>, archived: Option<bool>) -> Result<Json<Vec<Race>>, Status> {
 
-    match race_service.list().await {
-        Ok(races) => Ok(Json(races)),
+    match race_service.list(archived).await {
+        Ok(races) => Ok(Json(races.into_iter().map(|r| r.into()).collect())),
         Err(_) => Err(Status::InternalServerError)
     }
 }
@@ -25,7 +27,7 @@ async fn get(race_service: &State<RaceService>, race_id: String) -> Result<Json<
 
     match race_service.get(race_id).await {
         Ok(None) => Err(Status::NotFound),
-        Ok(Some(race)) => Ok(Json(race)),
+        Ok(Some(race)) => Ok(Json(race.into())),
         Err(_) => Err(Status::InternalServerError)
     }
 }
@@ -33,11 +35,12 @@ async fn get(race_service: &State<RaceService>, race_id: String) -> Result<Json<
 #[post("/races", data = "<race>")]
 async fn post(race_service: &State<RaceService>, race: Json<Race>) -> Status {
 
-    match race_service.create(&race.into_inner()).await {
+    match race_service.create(&race.into_inner().into()).await {
         Ok(_) => Status::Created,
         Err(error) => {
             match error.downcast_ref::<RaceError>() {
                 Some(RaceError::AlreadyExists(_)) => Status::Conflict,
+                Some(RaceError::IdIsMandatory()) => Status::BadRequest,
                 _ => Status::InternalServerError,
             }
         }
@@ -74,7 +77,7 @@ async fn restore(race_service: &State<RaceService>, race_id: String) -> Status {
 #[put("/races/<race_id>", data = "<race>")]
 async fn put(race_service: &State<RaceService>, race_id: String, race: Json<Race>) -> Status {
 
-    match race_service.update(race_id, &race.into_inner()).await {
+    match race_service.update(race_id, &race.into_inner().into()).await {
         Ok(_) => Status::NoContent,
         Err(error) => {
             match error.downcast_ref::<RaceError>() {
@@ -102,7 +105,7 @@ async fn delete(race_service: &State<RaceService>, race_id: String) -> Status {
 #[post("/legs", data = "<leg>")]
 async fn post_leg(race_service: &State<RaceService>, leg: Json<Leg>) -> Status {
 
-    let race: Race = leg.into_inner().into();
+    let race: race::Race = leg.into_inner().into();
 
     match race_service.create(&race).await {
         Ok(_) => Status::Created,
