@@ -21,7 +21,7 @@ pub(crate) struct Leg {
     #[serde(rename = "optionPrices")]
     option_prices: HashMap<String, u16>,
     #[serde(rename = "pilotBoatCredits")]
-    pilot_boat_credits: u16,
+    pilot_boat_credits: Option<u16>,
     status: Status,
     #[serde(rename = "estimatedTime")]
     estimated_time: u8,
@@ -44,15 +44,15 @@ pub(crate) struct Leg {
     #[serde(rename = "syncAWS")]
     sync_aws: String,
     #[serde(rename = "specialIcons")]
-    special_icons: SpecialIcons,
+    special_icons: Option<SpecialIcons>,
     #[serde(rename = "vsrLevel")]
     vsr_level: u8,
     #[serde(rename = "hasCode")]
-    has_code: bool,
+    has_code: Option<bool>,
     #[serde(rename = "sponsorLogo")]
-    sponsor_logo: String,
+    sponsor_logo: Option<String>,
     #[serde(rename = "sponsorURL")]
-    sponsor_url: String
+    sponsor_url: Option<String>
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -70,13 +70,15 @@ impl Into<String> for RaceId {
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "lowercase")]
 enum Status {
-    Opened
+    Opened,
+    Started
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "lowercase")]
 enum Schedule {
-    Validated
+    Validated,
+    DontShow
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -135,7 +137,8 @@ struct Checkpoint {
 #[serde(rename_all = "lowercase")]
 enum Display {
     None,
-    Buoy
+    Buoy,
+    Gate,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
