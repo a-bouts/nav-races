@@ -246,13 +246,22 @@ impl Into<race::Race> for Leg {
                 .filter(|c| c.display != Display::None)
                 .enumerate()
                 .map(|(index, checkpoint)| {
+
+                    let latlons = match checkpoint.side {
+                        Side::Stbd => vec![
+                            checkpoint.end.clone().into(),
+                            checkpoint.start.clone().into(),
+                        ],
+                        _ => vec![
+                            checkpoint.start.clone().into(),
+                            checkpoint.end.clone().into(),
+                        ]
+                    };
+
                     race::Waypoint {
                         name: (index + 1).to_string(),
                         radius: None,
-                        latlons: vec![
-                            checkpoint.start.clone().into(),
-                            checkpoint.end.clone().into(),
-                        ],
+                        latlons: latlons,
                         to_avoid: None
                     }
                 })
