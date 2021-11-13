@@ -6,6 +6,7 @@ use rocket::serde::json::Json;
 
 use model::leg::Leg;
 use crate::api::v1::model::race::Race;
+use crate::polar::PolarService;
 use crate::race;
 use crate::race::{RaceError, RaceService};
 
@@ -103,9 +104,15 @@ async fn delete(race_service: &State<RaceService>, race_id: String) -> Status {
 }
 
 #[post("/legs", data = "<leg>")]
-async fn post_leg(race_service: &State<RaceService>, leg: Json<Leg>) -> Status {
+async fn post_leg(race_service: &State<RaceService>, polar_service: &State<PolarService>, leg: Json<Leg>) -> Status {
 
-    let race: race::Race = leg.into_inner().into();
+    let leg = leg.into_inner();
+
+    let boat = polar_service.get_boat(leg.boat.polar_id).await.unwrap_or(String::from(""));
+
+    let mut race: race::Race = leg.into();
+
+    race.boat = boat;
 
     match race_service.create(&race).await {
         Ok(_) => Status::Created,

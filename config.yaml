@@ -1,2 +1,4 @@
 racesDir: 'races'
 archivedDir: 'races/archived'
+polars:
+  url: https://route.phtheirichthys.fr/polars/api/v1/polars

@@ -16,23 +16,21 @@ pub(crate) struct RaceService {
 
 impl RaceService {
 
+    fn create_dir(dir: &PathBuf) {
+        if !dir.exists() {
+            if let Err(e) = fs::create_dir_all(&dir) {
+                panic!("Error creating dir {:?} : {}", dir, e);
+            }
+        } else if !dir.is_dir() {
+            panic!("{:?} is not a directory", dir);
+        }
+    }
+
     pub(crate) fn new<P: Into<PathBuf>, Q: Into<PathBuf>>(races_dir: P, archived_dir: Q) -> Self {
         let races_dir: PathBuf = races_dir.into();
         let archived_dir: PathBuf = archived_dir.into();
-        if !races_dir.exists() {
-            if let Err(e) = fs::create_dir_all(&races_dir) {
-                panic!("Error creating dir {:?} : {}", races_dir, e);
-            }
-        } else if !races_dir.is_dir() {
-            panic!("{:?} is not a directory", races_dir);
-        }
-        if !archived_dir.exists() {
-            if let Err(e) = fs::create_dir_all(&archived_dir) {
-                panic!("Error creating dir {:?} : {}", archived_dir, e);
-            }
-        } else if !archived_dir.is_dir() {
-            panic!("{:?} is not a directory", archived_dir);
-        }
+        Self::create_dir(&races_dir);
+        Self::create_dir(&archived_dir);
         RaceService { races_dir, archived_dir }
     }
 

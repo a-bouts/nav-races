@@ -40,7 +40,7 @@ pub(crate) struct Leg {
     #[serde(rename = "mapPresets")]
     map_presets: Vec<String>,
     race: Race,
-    boat: Boat,
+    pub(crate) boat: Boat,
     #[serde(rename = "syncAWS")]
     sync_aws: String,
     #[serde(rename = "specialIcons")]
@@ -168,10 +168,10 @@ struct Race {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-struct Boat {
+pub(crate) struct Boat {
     name: String,
     label: String,
-    polar_id: u8,
+    pub(crate) polar_id: u8,
     #[serde(rename = "assetBundle")]
     asset_bundle: String,
     stats: HashMap<String, f64>,
