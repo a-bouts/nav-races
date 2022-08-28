@@ -186,7 +186,7 @@ struct SpecialIcons {
     #[serde(rename = "raceLogo")]
     race_logo: bool,
     #[serde(rename = "raceLogoLink")]
-    race_logo_link: String,
+    race_logo_link: Option<String>,
 }
 
 impl Into<race::LatLon> for LatLon {
@@ -218,25 +218,34 @@ impl Into<race::LatLon> for End {
 
 impl Leg {
     fn clean_name(&self) -> String {
-        self.race.name
+        let mut name = self.race.name
             .to_lowercase()
             .chars()
             .filter(|c| c.is_digit(10) || c.is_ascii_alphabetic() || c.clone() == ' ')
             .collect::<String>()
             .split_whitespace()
             .collect::<Vec<&str>>()
-            .join("-")
+            .join("-");
+
+        self.id.num.map(|num| { name = format!("{}-{}", name, num); });
+
+        name
     }
 }
 
 impl Into<race::Race> for Leg {
 
     fn into(self) -> race::Race {
+
+        let mut name = self.race.name.clone();
+
+        self.id.num.map(|num| { name = format!("{} #{}", name, num); });
+
         let mut race = race::Race {
             id: Some(self.clean_name()),
             race_id: Some(self.id.into()),
             archived: false,
-            name: self.race.name.clone(),
+            name,
             short_name: Some(self.race.name),
             boat: "".to_string(),
             start_time: Some(self.start.date.round_subsecs(0)),
